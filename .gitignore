@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
