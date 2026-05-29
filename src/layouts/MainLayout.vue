@@ -35,7 +35,7 @@
           <div class="user-panel">
             <el-avatar :size="36">{{ userInitial }}</el-avatar>
             <div>
-              <strong>{{ userStore.username || 'Guest' }}</strong>
+              <strong>{{ userStore.displayName }}</strong>
               <span>{{ userStore.roleName }}</span>
             </div>
           </div>
@@ -52,6 +52,44 @@
         <router-view />
       </el-main>
     </el-container>
+
+    <nav class="mobile-bottom-nav" aria-label="移动端主导航">
+      <router-link
+        v-for="item in mobileMenuItems"
+        :key="item.path"
+        :to="item.path"
+        class="mobile-nav-item"
+        :class="{ active: activePath === item.path }"
+      >
+        <el-icon>
+          <component :is="item.icon" />
+        </el-icon>
+        <span>{{ item.title }}</span>
+      </router-link>
+      <button type="button" class="mobile-nav-item mobile-nav-button" @click="moreDrawerVisible = true">
+        <el-icon>
+          <Menu />
+        </el-icon>
+        <span>更多</span>
+      </button>
+    </nav>
+
+    <el-drawer v-model="moreDrawerVisible" title="更多功能" direction="btt" size="46%" class="mobile-more-drawer">
+      <div class="mobile-more-grid">
+        <router-link
+          v-for="item in moreMenuItems"
+          :key="item.path"
+          :to="item.path"
+          class="mobile-more-item"
+          @click="moreDrawerVisible = false"
+        >
+          <el-icon>
+            <component :is="item.icon" />
+          </el-icon>
+          <span>{{ item.title }}</span>
+        </router-link>
+      </div>
+    </el-drawer>
   </el-container>
 </template>
 
@@ -59,20 +97,23 @@
 import {
   DataAnalysis,
   Histogram,
+  Menu,
   Monitor,
   Operation,
   Setting,
   Star,
   TrendCharts
 } from '@element-plus/icons-vue';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import { logout as logoutApi } from '@/api/auth';
 import { useUserStore } from '@/stores/user';
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
+const moreDrawerVisible = ref(false);
 
 const menuItems = [
   {
@@ -112,14 +153,31 @@ const menuItems = [
   }
 ];
 
+const mobileMenuItems = [
+  menuItems[0],
+  menuItems[1],
+  menuItems[2]
+];
+
+const moreMenuItems = [
+  menuItems[3],
+  menuItems[4],
+  menuItems[5],
+  menuItems[6]
+];
+
 const activePath = computed(() => route.path);
 const currentTitle = computed(() => String(route.meta.title || '首页'));
-const userInitial = computed(() => (userStore.username || 'Q').slice(0, 1).toUpperCase());
+const userInitial = computed(() => userStore.displayName.slice(0, 1).toUpperCase());
 
-const handleCommand = (command: string) => {
+const handleCommand = async (command: string) => {
   if (command === 'logout') {
-    userStore.logout();
-    router.push('/login');
+    try {
+      await logoutApi();
+    } finally {
+      userStore.logout();
+      router.push('/login');
+    }
     return;
   }
 

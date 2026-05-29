@@ -31,8 +31,13 @@ request.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 const handleResponse = (response: AxiosResponse<ApiResponse>) => {
   const responseData = response.data;
+  const successCodes = [0, 200];
 
-  if (responseData && typeof responseData.code === 'number' && responseData.code !== 0) {
+  if (
+    responseData
+    && typeof responseData.code === 'number'
+    && !successCodes.includes(responseData.code)
+  ) {
     ElMessage.warning(responseData.message || '请求处理失败');
     return Promise.reject(responseData);
   }

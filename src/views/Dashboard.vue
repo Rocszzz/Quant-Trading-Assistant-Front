@@ -1,105 +1,76 @@
 <template>
   <div>
     <div class="page-grid">
-      <MetricCard label="总资产估值" value="¥ 8,426,310" trend="+2.41%" />
-      <MetricCard label="今日策略收益" value="¥ 32,860" trend="+0.72%" />
-      <MetricCard label="运行策略" value="12" trend="8 active" />
-      <MetricCard label="风险事件" value="3" trend="待确认" :positive="false" />
+      <el-card class="dashboard-card" shadow="never">
+        <template #header>
+          <span>自选股数量</span>
+        </template>
+        <div v-loading="watchlistLoading" class="dashboard-metric">
+          <strong>{{ watchlistCount }}</strong>
+          <span>当前关注标的</span>
+        </div>
+      </el-card>
+
+      <el-card class="dashboard-card" shadow="never">
+        <template #header>
+          <span>策略数量</span>
+        </template>
+        <div class="dashboard-metric">
+          <strong>--</strong>
+          <span>阶段 1 占位，等待策略接口接入</span>
+        </div>
+      </el-card>
+
+      <el-card class="dashboard-card" shadow="never">
+        <template #header>
+          <span>模拟账户资产</span>
+        </template>
+        <div class="dashboard-metric">
+          <strong>--</strong>
+          <span>阶段 1 占位，不包含真实交易</span>
+        </div>
+      </el-card>
     </div>
 
-    <div class="content-grid">
-      <section class="panel">
-        <div class="panel-title">
-          <h2>策略表现概览</h2>
-          <span>近 30 个交易日</span>
-        </div>
-        <el-table :data="strategies" height="360">
-          <el-table-column prop="name" label="策略名称" min-width="160" />
-          <el-table-column prop="market" label="市场" width="100" />
-          <el-table-column prop="returnRate" label="收益率" width="120" />
-          <el-table-column prop="sharpe" label="Sharpe" width="110" />
-          <el-table-column prop="drawdown" label="最大回撤" width="120" />
-          <el-table-column label="状态" width="110">
-            <template #default="{ row }">
-              <span class="status-dot" :class="row.statusClass"></span>{{ row.status }}
-            </template>
-          </el-table-column>
-        </el-table>
-      </section>
+    <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" />
 
-      <section class="panel">
-        <div class="panel-title">
-          <h2>市场快照</h2>
-          <span>示例数据</span>
+    <section class="panel overview-panel">
+      <div class="panel-title">
+        <div>
+          <h2>阶段 1 工作台</h2>
+          <span>优先完成自选股维护和股票搜索流程</span>
         </div>
-        <el-timeline>
-          <el-timeline-item v-for="item in marketEvents" :key="item.time" :timestamp="item.time">
-            {{ item.content }}
-          </el-timeline-item>
-        </el-timeline>
-      </section>
-    </div>
+      </div>
+      <el-empty description="策略、回测、模拟交易数据将在后续阶段接入真实接口" />
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import MetricCard from '@/components/MetricCard.vue';
+import { onMounted, ref } from 'vue';
 
-const strategies = [
-  {
-    name: 'Alpha Momentum CN',
-    market: 'A股',
-    returnRate: '+12.8%',
-    sharpe: '1.92',
-    drawdown: '-4.6%',
-    status: '运行中',
-    statusClass: ''
-  },
-  {
-    name: 'ETF Rotation',
-    market: 'ETF',
-    returnRate: '+8.3%',
-    sharpe: '1.48',
-    drawdown: '-3.1%',
-    status: '运行中',
-    statusClass: ''
-  },
-  {
-    name: 'Index Hedge',
-    market: '股指',
-    returnRate: '+3.6%',
-    sharpe: '0.96',
-    drawdown: '-2.4%',
-    status: '观察',
-    statusClass: 'warning'
-  },
-  {
-    name: 'Mean Reversion',
-    market: 'A股',
-    returnRate: '-1.2%',
-    sharpe: '0.42',
-    drawdown: '-6.8%',
-    status: '暂停',
-    statusClass: 'danger'
-  }
-];
+import { getWatchlist } from '@/api/stock';
 
-const marketEvents = [
-  {
-    time: '09:35',
-    content: '沪深 300 成分股动量因子出现短周期增强。'
-  },
-  {
-    time: '10:20',
-    content: 'ETF 轮动策略触发仓位再平衡建议。'
-  },
-  {
-    time: '13:45',
-    content: '组合波动率接近风控阈值，建议关注。'
-  },
-  {
-    time: '14:50',
-    content: '模拟账户当日收益回撤至预警线以内。'
+const watchlistCount = ref(0);
+const watchlistLoading = ref(false);
+const errorMessage = ref('');
+
+const loadWatchlistCount = async () => {
+  watchlistLoading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const watchlist = await getWatchlist();
+    watchlistCount.value = watchlist.length;
+  } catch {
+    watchlistCount.value = 0;
+    errorMessage.value = '自选股数量加载失败，请检查后端 /api/watchlist 接口';
+  } finally {
+    watchlistLoading.value = false;
   }
-];
+};
+
+onMounted(() => {
+  loadWatchlistCount();
+});
 </script>
