@@ -18,14 +18,35 @@
         :data="watchlist"
         class="data-table"
         empty-text="暂无自选股，请点击搜索添加"
+        @row-click="goStockDetail"
       >
         <el-table-column prop="symbol" label="股票代码" width="140" />
         <el-table-column prop="name" label="股票名称" min-width="160" />
         <el-table-column prop="exchange" label="交易所" width="120" />
         <el-table-column prop="industry" label="行业" min-width="180" />
-        <el-table-column label="操作" width="140" fixed="right">
+        <el-table-column label="最新价" width="120">
           <template #default="{ row }">
-            <el-button link type="danger" :loading="deletingId === row.id" @click="handleDelete(row)">
+            {{ formatPrice(row.closePrice) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="涨跌幅" width="120">
+          <template #default="{ row }">
+            <span :class="getChangeClass(row.changeRate)">
+              {{ formatPercent(row.changeRate) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="成交量" min-width="140">
+          <template #default="{ row }">
+            {{ formatVolume(row.volume) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click.stop="goStockDetail(row)">
+              详情
+            </el-button>
+            <el-button link type="danger" :loading="deletingId === row.id" @click.stop="handleDelete(row)">
               删除
             </el-button>
           </template>
@@ -82,16 +103,26 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
+import { getWatchlistMarketQuotes } from '@/api/marketApi';
 import {
   addWatchlistItem,
   deleteWatchlistItem,
   getWatchlist,
   searchStocks
 } from '@/api/stock';
+import type { MarketQuote } from '@/types/market';
 import type { StockInfo, WatchlistItem } from '@/types/stock';
 
-const watchlist = ref<WatchlistItem[]>([]);
+interface WatchlistMarketRow extends WatchlistItem {
+  closePrice?: number;
+  changeRate?: number;
+  volume?: number;
+}
+
+const router = useRouter();
+const watchlist = ref<WatchlistMarketRow[]>([]);
 const searchResults = ref<StockInfo[]>([]);
 const watchlistLoading = ref(false);
 const searchLoading = ref(false);
@@ -105,19 +136,50 @@ const searchForm = reactive({
   keyword: ''
 });
 
+const buildMarketRows = (items: WatchlistItem[], quotes: MarketQuote[]) => {
+  const quoteMap = new Map(quotes.map((quote) => [quote.symbol, quote]));
+
+  return items.map((item) => {
+    const quote = quoteMap.get(item.symbol);
+
+    return {
+      ...item,
+      closePrice: quote?.closePrice,
+      changeRate: quote?.changeRate,
+      volume: quote?.volume
+    };
+  });
+};
+
 const addedStockIds = computed(() => new Set(watchlist.value.map((item) => item.stockId)));
 
 const isAdded = (stock: StockInfo) => addedStockIds.value.has(stock.id);
+
+const formatPrice = (value?: number) => (typeof value === 'number' ? value.toFixed(2) : '--');
+const formatPercent = (value?: number) => {
+  if (typeof value !== 'number') {
+    return '--';
+  }
+
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
+};
+const formatVolume = (value?: number) => (typeof value === 'number' ? value.toLocaleString() : '--');
+const getChangeClass = (value?: number) => ({
+  'market-positive': typeof value === 'number' && value > 0,
+  'market-negative': typeof value === 'number' && value < 0
+});
 
 const loadWatchlist = async () => {
   watchlistLoading.value = true;
   watchlistError.value = '';
 
   try {
-    watchlist.value = await getWatchlist();
+    const nextWatchlist = await getWatchlist();
+    const quotes = await getWatchlistMarketQuotes();
+    watchlist.value = buildMarketRows(nextWatchlist, quotes);
   } catch {
     watchlist.value = [];
-    watchlistError.value = '自选股加载失败，请稍后重试';
+    watchlistError.value = '自选股或行情加载失败，请稍后重试';
   } finally {
     watchlistLoading.value = false;
   }
@@ -195,6 +257,10 @@ const handleDelete = async (item: WatchlistItem) => {
   } finally {
     deletingId.value = undefined;
   }
+};
+
+const goStockDetail = (item: WatchlistMarketRow) => {
+  router.push(`/stocks/${item.symbol}`);
 };
 
 onMounted(() => {

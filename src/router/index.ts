@@ -34,6 +34,14 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'stocks/:symbol',
+        name: 'StockDetail',
+        component: () => import('@/views/StockDetail.vue'),
+        meta: {
+          title: '股票详情'
+        }
+      },
+      {
         path: 'strategy',
         name: 'Strategy',
         component: () => import('@/views/Strategy.vue'),
