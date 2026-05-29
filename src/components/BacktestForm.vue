@@ -3,7 +3,7 @@
     <div class="panel-title">
       <div>
         <h2>回测参数</h2>
-        <span>当前后端回测接口支持 MA_CROSS 双均线策略</span>
+        <span>从后端加载已启用策略，提交时使用策略 ID 运行回测</span>
       </div>
     </div>
 
@@ -40,16 +40,23 @@
       </el-form-item>
 
       <el-form-item label="策略选择" prop="strategyId">
-        <el-select v-model="form.strategyId" filterable clearable placeholder="选择 MA_CROSS 策略">
+        <el-select
+          v-model="form.strategyId"
+          filterable
+          clearable
+          placeholder="选择已启用策略"
+          :loading="strategyLoading"
+          @visible-change="handleStrategyDropdownVisible"
+        >
           <el-option
             v-for="item in availableStrategies"
             :key="item.id"
-            :label="item.name"
+            :label="getStrategyLabel(item)"
             :value="item.id"
           >
             <div class="option-row">
-              <strong>{{ item.name }}</strong>
-              <span>{{ item.typeDescription || item.type }}</span>
+              <strong>{{ getStrategyLabel(item) }}</strong>
+              <span>{{ getStrategyTypeText(item) }}</span>
             </div>
           </el-option>
         </el-select>
@@ -98,10 +105,10 @@
 
 <script setup lang="ts">
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 import { searchStocks } from '@/api/stock';
-import { getStrategies } from '@/api/strategyApi';
+import { getEnabledStrategies } from '@/api/strategyApi';
 import type { BacktestRunPayload } from '@/types/backtest';
 import type { StockInfo } from '@/types/stock';
 import type { StrategyItem } from '@/types/strategy';
@@ -124,6 +131,7 @@ const emit = defineEmits<{
 
 const formRef = ref<FormInstance>();
 const stockLoading = ref(false);
+const strategyLoading = ref(false);
 const stocks = ref<StockInfo[]>([]);
 const strategies = ref<StrategyItem[]>([]);
 
@@ -135,9 +143,15 @@ const form = reactive<BacktestFormState>({
   initialCash: 100000
 });
 
-const availableStrategies = computed(() => {
-  return strategies.value.filter((item) => item.enabled && item.type === 'MA_CROSS');
-});
+const availableStrategies = computed(() => strategies.value);
+
+const getStrategyLabel = (strategy: StrategyItem) => {
+  return strategy.name || strategy.code || `策略 #${strategy.id}`;
+};
+
+const getStrategyTypeText = (strategy: StrategyItem) => {
+  return strategy.typeDescription || strategy.type || '已启用';
+};
 
 const rules: FormRules<BacktestFormState> = {
   symbol: [{ required: true, message: '请选择股票', trigger: 'change' }],
@@ -158,6 +172,23 @@ const searchStockOptions = async (keyword: string) => {
   } finally {
     stockLoading.value = false;
   }
+};
+
+const loadEnabledStrategies = async () => {
+  strategyLoading.value = true;
+  try {
+    strategies.value = await getEnabledStrategies();
+  } finally {
+    strategyLoading.value = false;
+  }
+};
+
+const handleStrategyDropdownVisible = (visible: boolean) => {
+  if (!visible) {
+    return;
+  }
+
+  loadEnabledStrategies();
 };
 
 const submit = async () => {
@@ -189,10 +220,6 @@ const submit = async () => {
     initialCash: Number(form.initialCash)
   });
 };
-
-onMounted(async () => {
-  strategies.value = await getStrategies();
-});
 </script>
 
 <style scoped>
