@@ -10,6 +10,10 @@ export const getStrategies = async () => {
   return (await request.get('/strategies')) as unknown as StrategyItem[];
 };
 
+export const getEnabledStrategies = async () => {
+  return (await request.get('/strategies/enabled')) as unknown as StrategyItem[];
+};
+
 export const getStrategyDetail = async (id: number | string) => {
   return (await request.get(`/strategies/${id}`)) as unknown as StrategyItem;
 };
